@@ -1,0 +1,17 @@
+Analysis Results for Astrid_SB7_690_groups_090
+==================================================
+
+Number of halos with galaxies: 381
+Number of galaxies with zero radius: 0
+Minimum galaxy stellar mass: 1.3001e+08
+
+Number of total galaxies: 544
+Number of central galaxies: 381
+Number of satellite galaxies: 163
+
+Number of satellites in top 100 halos: 150
+Average satellites per top halo: 1.5000
+
+Plots saved to:
+  - stellar_vs_halo_mass.png
+  - distribution_histograms.png

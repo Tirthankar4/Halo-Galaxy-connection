@@ -1,0 +1,35 @@
+{
+  "n_galaxies": null,
+  "n_transforms": 1,
+  "test_size": 0.2,
+  "seed": 42,
+  "epochs": 100,
+  "batch_size": 2048,
+  "lr": 0.005,
+  "data_path": "C:\\Users\\tirth\\Documents\\Projects\\Halo - galaxy connection\\CAMELS_datas\\camels_astrid_sb7_090.parquet",
+  "feature_cols": [
+    "log_Mg",
+    "log_MBH",
+    "log_Mstar",
+    "log_Mt",
+    "log_Vmax",
+    "log_sigma_v",
+    "log_Zg",
+    "log_Zstar",
+    "log_SFR",
+    "log_J",
+    "log_Rstar",
+    "log_Rt",
+    "log_Rmax",
+    "log_V"
+  ],
+  "param_cols": [
+    "Omega_m",
+    "sigma_8",
+    "A_SN1",
+    "A_AGN1",
+    "A_SN2",
+    "A_AGN2",
+    "Omega_b"
+  ]
+}

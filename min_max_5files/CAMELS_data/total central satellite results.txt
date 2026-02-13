@@ -1,0 +1,72 @@
+File: C:\Users\tirth\OneDrive\Desktop\CAMELS_data\FOF_Subfind_Astrid_SB7_1022_groups_090.hdf5
+Total Galaxies (> 1.95e8): 362
+Central Galaxies (> 1.95e8): 260
+Average Satellites in top 100 halos: 0.99
+Total Satellites in top 100 halos: 99
+------------------------------
+File: C:\Users\tirth\OneDrive\Desktop\CAMELS_data\FOF_Subfind_Astrid_SB7_135_groups_090.hdf5
+Total Galaxies (> 1.95e8): 184
+Central Galaxies (> 1.95e8): 111
+Average Satellites in top 100 halos: 0.73
+Total Satellites in top 100 halos: 73
+------------------------------
+File: C:\Users\tirth\OneDrive\Desktop\CAMELS_data\FOF_Subfind_Astrid_SB7_18_groups_090.hdf5
+Total Galaxies (> 1.95e8): 977
+Central Galaxies (> 1.95e8): 600
+Average Satellites in top 100 halos: 3.5
+Total Satellites in top 100 halos: 350
+------------------------------
+File: C:\Users\tirth\OneDrive\Desktop\CAMELS_data\FOF_Subfind_Astrid_SB7_227_groups_090.hdf5
+Total Galaxies (> 1.95e8): 848
+Central Galaxies (> 1.95e8): 576
+Average Satellites in top 100 halos: 2.33
+Total Satellites in top 100 halos: 233
+------------------------------
+File: C:\Users\tirth\OneDrive\Desktop\CAMELS_data\FOF_Subfind_Astrid_SB7_246_groups_090.hdf5
+Total Galaxies (> 1.95e8): 1371
+Central Galaxies (> 1.95e8): 881
+Average Satellites in top 100 halos: 4.37
+Total Satellites in top 100 halos: 437
+------------------------------
+File: C:\Users\tirth\OneDrive\Desktop\CAMELS_data\FOF_Subfind_Astrid_SB7_270_groups_090.hdf5
+Total Galaxies (> 1.95e8): 368
+Central Galaxies (> 1.95e8): 251
+Average Satellites in top 100 halos: 1.13
+Total Satellites in top 100 halos: 113
+------------------------------
+File: C:\Users\tirth\OneDrive\Desktop\CAMELS_data\FOF_Subfind_Astrid_SB7_311_groups_090.hdf5
+Total Galaxies (> 1.95e8): 1460
+Central Galaxies (> 1.95e8): 918
+Average Satellites in top 100 halos: 4.58
+Total Satellites in top 100 halos: 458
+------------------------------
+File: C:\Users\tirth\OneDrive\Desktop\CAMELS_data\FOF_Subfind_Astrid_SB7_492_groups_090.hdf5
+Total Galaxies (> 1.95e8): 1201
+Central Galaxies (> 1.95e8): 823
+Average Satellites in top 100 halos: 3.04
+Total Satellites in top 100 halos: 304
+------------------------------
+File: C:\Users\tirth\OneDrive\Desktop\CAMELS_data\FOF_Subfind_Astrid_SB7_511_groups_090.hdf5
+Total Galaxies (> 1.95e8): 34
+Central Galaxies (> 1.95e8): 26
+Average Satellites in top 100 halos: 0.08
+Total Satellites in top 100 halos: 8
+------------------------------
+File: C:\Users\tirth\OneDrive\Desktop\CAMELS_data\FOF_Subfind_Astrid_SB7_770_groups_090.hdf5
+Total Galaxies (> 1.95e8): 2101
+Central Galaxies (> 1.95e8): 1347
+Average Satellites in top 100 halos: 6.49
+Total Satellites in top 100 halos: 649
+------------------------------
+File: C:\Users\tirth\OneDrive\Desktop\CAMELS_data\FOF_Subfind_Astrid_SB7_805_groups_090.hdf5
+Total Galaxies (> 1.95e8): 63
+Central Galaxies (> 1.95e8): 49
+Average Satellites in top 100 halos: 0.14
+Total Satellites in top 100 halos: 14
+------------------------------
+File: C:\Users\tirth\OneDrive\Desktop\CAMELS_data\FOF_Subfind_Astrid_SB7_883_groups_090.hdf5
+Total Galaxies (> 1.95e8): 183
+Central Galaxies (> 1.95e8): 133
+Average Satellites in top 100 halos: 0.49
+Total Satellites in top 100 halos: 49
+------------------------------
