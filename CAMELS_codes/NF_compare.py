@@ -28,6 +28,10 @@ from NF_evaluate import (
     get_tarp_coverage,
 )
 from transformation import prepare_features_and_params, load_data, transform_features
+from transformation import (
+    transform_params,
+    inverse_transform_params,
+)
 
 
 # ============ Configuration ============
@@ -62,6 +66,7 @@ def load_test_data(config, data_path):
     test_size = config.get("test_size", 0.2)
     feature_cols = config.get("feature_cols")
     param_cols = config.get("param_cols")
+    target_log_params = config.get("target_log_params", [])
     
     # Set seeds for reproducibility
     pyro.set_rng_seed(seed)
@@ -77,15 +82,18 @@ def load_test_data(config, data_path):
         df_raw = subsample_per_simulation(df_raw, n_galaxies, seed)
     
     df_transformed, transformed_cols = transform_features(df_raw.copy(), feature_cols_raw)
+    df_transformed, transformed_param_cols = transform_params(
+        df_transformed, param_cols, target_log_params
+    )
     features = df_transformed[transformed_cols].values
-    params = df_raw[param_cols].values
+    params = df_transformed[transformed_param_cols].values
     
     # Reproduce train/test split
     _, feat_test, _, params_test = train_test_split(
         features, params, test_size=test_size, random_state=seed
     )
     
-    return feat_test, params_test, feature_cols, param_cols
+    return feat_test, params_test, feature_cols, param_cols, target_log_params
 
 
 # ── Metric computation ────────────────────────────────────────────────────────
@@ -112,7 +120,9 @@ def compute_test_nll(cond_dist, features, params, device, batch_size=1024):
     return nll_sum / n_test
 
 
-def compute_point_metrics(cond_dist, features, params_true, param_scaler, param_cols, device):
+def compute_point_metrics(
+    cond_dist, features, params_true, param_scaler, param_cols, target_log_params, device
+):
     """
     Compute point estimate metrics (PCC, RMSE) using posterior means.
     
@@ -136,16 +146,18 @@ def compute_point_metrics(cond_dist, features, params_true, param_scaler, param_
             pred_scaled.append(samples.mean(dim=0).cpu().numpy())
     
     pred_scaled = np.array(pred_scaled)
-    preds_phys = param_scaler.inverse_transform(pred_scaled)
+    preds_transformed = param_scaler.inverse_transform(pred_scaled)
+    preds_phys = inverse_transform_params(preds_transformed, param_cols, target_log_params)
+    params_true_phys = inverse_transform_params(params_true, param_cols, target_log_params)
     
     # Compute per-parameter PCC
     pccs = {}
     for i, name in enumerate(param_cols):
-        pcc, _ = pearsonr(params_true[:, i], preds_phys[:, i])
+        pcc, _ = pearsonr(params_true_phys[:, i], preds_phys[:, i])
         pccs[name] = pcc
     
     avg_pcc = np.mean(list(pccs.values()))
-    rmse = np.sqrt(mean_squared_error(params_true, preds_phys))
+    rmse = np.sqrt(mean_squared_error(params_true_phys, preds_phys))
     
     return avg_pcc, rmse, pccs
 
@@ -200,7 +212,7 @@ def evaluate_single_model(model_dir, data_path, device):
         config = json.load(f)
     
     # Load test data
-    feat_test, params_test, feature_cols, param_cols = load_test_data(config, data_path)
+    feat_test, params_test, feature_cols, param_cols, target_log_params = load_test_data(config, data_path)
     
     # Load model
     n_transforms = config.get("n_transforms", 2)
@@ -220,7 +232,7 @@ def evaluate_single_model(model_dir, data_path, device):
     # Compute metrics
     nll = compute_test_nll(cond_dist, feat_scaled, params_scaled, device)
     avg_pcc, rmse, pccs = compute_point_metrics(
-        cond_dist, feat_scaled, params_test, param_scaler, param_cols, device
+        cond_dist, feat_scaled, params_test, param_scaler, param_cols, target_log_params, device
     )
     tarp_score = compute_tarp_score(cond_dist, feat_scaled, params_scaled, device)
     

@@ -13,7 +13,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from pathlib import Path
 import argparse
-from transformation import prepare_features_and_params, load_data, transform_features
+from transformation import (
+    ASTROPHYSICAL_LOG_PARAMS,
+    prepare_features_and_params,
+    load_data,
+    transform_features,
+    transform_params,
+)
 
 # ============ Configuration ============
 DATA_PATH = Path(__file__).parent.parent / "CAMELS_datas" / "camels_astrid_sb7_090.parquet"
@@ -28,6 +34,7 @@ GALAXY_PROPERTIES = [
 
 # Parameters to learn (targets)
 PARAM_COLUMNS = ['Omega_m', 'sigma_8', 'A_SN1', 'A_AGN1', 'A_SN2', 'A_AGN2', 'Omega_b']
+TARGET_LOG_PARAMS = ASTROPHYSICAL_LOG_PARAMS
 
 # Training hyperparameters
 EPOCHS = 100
@@ -189,8 +196,11 @@ def main():
         df_raw = subsample_per_simulation(df_raw, n_galaxies)
         feature_cols = GALAXY_PROPERTIES + ["V"]
         df_transformed, transformed_feature_cols = transform_features(df_raw.copy(), feature_cols)
+        df_transformed, transformed_param_cols = transform_params(
+            df_transformed, PARAM_COLUMNS, TARGET_LOG_PARAMS
+        )
         features = df_transformed[transformed_feature_cols].values
-        params   = df_raw[PARAM_COLUMNS].values
+        params   = df_transformed[transformed_param_cols].values
     else:
         features, params, _, transformed_feature_cols = prepare_features_and_params(
             data_path, GALAXY_PROPERTIES, PARAM_COLUMNS
@@ -221,6 +231,7 @@ def main():
     print(f"Batch size: {BATCH_SIZE}, Epochs: {EPOCHS}, N_Transforms: {N_TRANSFORMS}")
     print(f"Features ({len(feature_cols)}): {feature_cols}")
     print(f"Targets ({len(PARAM_COLUMNS)}): {PARAM_COLUMNS}")
+    print(f"Target log-transform cols: {TARGET_LOG_PARAMS}")
     if n_galaxies is not None:
         print(f"Subsampling: {n_galaxies} galaxies/simulation")
 
@@ -253,6 +264,7 @@ def main():
         "data_path":    str(data_path),
         "feature_cols": feature_cols,
         "param_cols":   PARAM_COLUMNS,
+        "target_log_params": TARGET_LOG_PARAMS,
     }
     config_path = output_dir / "train_config.json"
     with open(config_path, "w") as f:

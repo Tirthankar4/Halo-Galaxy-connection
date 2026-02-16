@@ -18,7 +18,14 @@ from pathlib import Path
 import argparse
 import matplotlib.pyplot as plt
 from tarp import get_tarp_coverage
-from transformation import prepare_features_and_params, load_data, transform_features
+from transformation import (
+    ASTROPHYSICAL_LOG_PARAMS,
+    prepare_features_and_params,
+    load_data,
+    transform_features,
+    transform_params,
+    inverse_transform_params,
+)
 
 # ============ Configuration ============
 DATA_PATH = Path(__file__).parent.parent / "CAMELS_datas" / "camels_astrid_sb7_090.parquet"
@@ -33,6 +40,7 @@ GALAXY_PROPERTIES = [
 
 # Parameters to learn (targets)
 PARAM_COLUMNS = ['Omega_m', 'sigma_8', 'A_SN1', 'A_AGN1', 'A_SN2', 'A_AGN2', 'Omega_b']
+TARGET_LOG_PARAMS = ASTROPHYSICAL_LOG_PARAMS
 
 # Evaluation settings
 TEST_SIZE = 0.2
@@ -66,6 +74,7 @@ def load_train_config(model_dir: Path) -> dict:
     n_transforms = config.get("n_transforms", 2)
     seed         = config.get("seed", SEED)
     test_size    = config.get("test_size", TEST_SIZE)
+    target_log_params = config.get("target_log_params", [])
 
     print("=" * 60)
     print("Training configuration (from train_config.json)")
@@ -77,6 +86,7 @@ def load_train_config(model_dir: Path) -> dict:
     print(f"  epochs       : {config.get('epochs')}")
     print(f"  batch_size   : {config.get('batch_size')}")
     print(f"  lr           : {config.get('lr')}")
+    print(f"  target_log_params: {target_log_params}")
     print("=" * 60)
 
     return config
@@ -139,7 +149,25 @@ def load_model(model_path, scaler_path, cond_dim, param_dim, n_transforms, devic
 
 # ── Prediction / evaluation ───────────────────────────────────────────────────
 
-def compute_predictions(cond_dist, features_test, device, n_samples=1000, max_test_samples=None):
+def compute_predictions(
+    cond_dist,
+    features_test,
+    device,
+    param_scaler,
+    target_log_params,
+    param_names,
+    n_samples=1000,
+    max_test_samples=None,
+):
+    """
+    Draw posterior samples for each test galaxy and return means and stds
+    in physical units.
+
+    Samples are drawn in the model's scaled space, then transformed to physical
+    units per-sample (StandardScaler inverse → log10 inverse for astrophysical
+    params) before computing mean and std. This is exact and avoids the delta
+    method approximation that would be needed if converting stats after the fact.
+    """
     if max_test_samples is not None and len(features_test) > max_test_samples:
         indices = np.random.choice(len(features_test), max_test_samples, replace=False)
         features_test = features_test[indices]
@@ -155,11 +183,23 @@ def compute_predictions(cond_dist, features_test, device, n_samples=1000, max_te
             if batch_start % 1000 == 0:
                 print(f"  Processing samples {batch_start}/{n_test}...")
             for i in range(batch_start, batch_end):
-                single_feature  = features_test[i:i+1].to(device)
+                single_feature   = features_test[i:i+1].to(device)
                 conditioned_dist = cond_dist.condition(single_feature)
-                samples = conditioned_dist.sample((n_samples,)).squeeze(1)
-                all_means.append(samples.mean(dim=0).cpu().numpy())
-                all_stds.append(samples.std(dim=0).cpu().numpy())
+
+                # samples shape: (n_samples, n_params) — in StandardScaler space
+                samples = conditioned_dist.sample((n_samples,)).squeeze(1).cpu().numpy()
+
+                # Step 1: invert StandardScaler  →  log-transformed param space
+                samples_log = param_scaler.inverse_transform(samples)
+
+                # Step 2: invert log10 for astrophysical params  →  physical space
+                # This is exact per-sample, no approximation needed
+                samples_physical = inverse_transform_params(
+                    samples_log, param_names, target_log_params
+                )
+
+                all_means.append(samples_physical.mean(axis=0))
+                all_stds.append(samples_physical.std(axis=0))
 
     return np.array(all_means), np.array(all_stds), indices
 
@@ -407,6 +447,7 @@ def main():
     n_transforms = config.get("n_transforms", 2)
     seed         = config.get("seed", SEED)
     test_size    = config.get("test_size", TEST_SIZE)
+    target_log_params = config.get("target_log_params", [])
 
     # Set seeds for reproducibility
     pyro.set_rng_seed(seed)
@@ -424,13 +465,23 @@ def main():
         df_raw = subsample_per_simulation(df_raw, n_galaxies, seed)
         feature_cols_raw = GALAXY_PROPERTIES + ["V"]
         df_transformed, transformed_feature_cols = transform_features(df_raw.copy(), feature_cols_raw)
+        df_transformed, transformed_param_cols = transform_params(
+            df_transformed, PARAM_COLUMNS, target_log_params
+        )
         features = df_transformed[transformed_feature_cols].values
-        params   = df_raw[PARAM_COLUMNS].values
+        params   = df_transformed[transformed_param_cols].values
     else:
         print("\nUsing full dataset (no subsampling)...")
         features, params, _, transformed_feature_cols = prepare_features_and_params(
             data_path, GALAXY_PROPERTIES, PARAM_COLUMNS
         )
+        if set(target_log_params) != set(TARGET_LOG_PARAMS):
+            df_raw = load_data(data_path)
+            df_raw, _ = transform_features(df_raw, GALAXY_PROPERTIES + ["V"])
+            df_raw, transformed_param_cols = transform_params(
+                df_raw, PARAM_COLUMNS, target_log_params
+            )
+            params = df_raw[transformed_param_cols].values
 
     feature_cols = transformed_feature_cols
 
@@ -449,30 +500,36 @@ def main():
     )
     print("Model loaded successfully!")
 
-    # Standardize test data using training scalers
+    # Standardize test features using training scaler
     feat_test_scaled    = feat_scaler.transform(feat_test)
     feat_test_tensor    = torch.tensor(feat_test_scaled, dtype=torch.float32)
-    params_test_tensor  = torch.tensor(param_scaler.transform(params_test), dtype=torch.float32)
 
     # ── Compute predictions ───────────────────────────────────────────────────
     print(f"\nComputing predicted means and stds for {len(feat_test)} test samples...")
-    pred_means, pred_stds, subsample_indices = compute_predictions(
+    pred_means_physical, pred_stds_physical, subsample_indices = compute_predictions(
         cond_dist, feat_test_tensor, device,
-        n_samples=N_POSTERIOR_SAMPLES, max_test_samples=MAX_TEST_SAMPLES,
+        param_scaler=param_scaler,
+        target_log_params=target_log_params,
+        param_names=PARAM_COLUMNS,
+        n_samples=N_POSTERIOR_SAMPLES,
+        max_test_samples=MAX_TEST_SAMPLES,
     )
 
     params_test_subset = (params_test[subsample_indices]
                           if subsample_indices is not None else params_test)
 
-    pred_means_unscaled = param_scaler.inverse_transform(pred_means)
-    pred_stds_unscaled  = pred_stds * param_scaler.scale_
+    # Convert true params from (log-)transformed space to physical units
+    # for comparison against the physical-space predictions
+    params_test_subset_physical = inverse_transform_params(
+        params_test_subset, PARAM_COLUMNS, target_log_params
+    )
 
     # ── Plots ─────────────────────────────────────────────────────────────────
     print(f"\nCreating predicted vs true plots...")
     plots_dir.mkdir(parents=True, exist_ok=True)
     plot_pred_vs_true(
-        pred_means_unscaled, pred_stds_unscaled,
-        params_test_subset, PARAM_COLUMNS, plots_dir,
+        pred_means_physical, pred_stds_physical,
+        params_test_subset_physical, PARAM_COLUMNS, plots_dir,
     )
 
     feat_test_subset_tensor = (feat_test_tensor[subsample_indices]

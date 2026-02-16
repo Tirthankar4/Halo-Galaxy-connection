@@ -8,6 +8,8 @@ from typing import List, Tuple
 import numpy as np
 import pandas as pd
 
+ASTROPHYSICAL_LOG_PARAMS = ["A_SN1", "A_AGN1", "A_SN2", "A_AGN2"]
+
 
 def apply_shifted_log_transform(
     vals: np.ndarray, feature_name: str
@@ -112,6 +114,65 @@ def transform_features(
     return df, transformed_feature_cols
 
 
+def transform_params(
+    df: pd.DataFrame,
+    param_cols: List[str],
+    log_param_cols: List[str] = ASTROPHYSICAL_LOG_PARAMS,
+) -> Tuple[pd.DataFrame, List[str]]:
+    """
+    Apply log10 transform to selected target parameters.
+
+    Args:
+        df: Input dataframe containing target columns
+        param_cols: Target columns in the order used by the model
+        log_param_cols: Subset of param_cols to transform with log10
+
+    Returns:
+        Updated dataframe and transformed target column names
+    """
+    transformed_param_cols = []
+    log_param_set = set(log_param_cols)
+
+    print("\nApplying target transforms...")
+    for col in param_cols:
+        if col in log_param_set:
+            if (df[col] <= 0).any():
+                raise ValueError(
+                    f"Log10 target transform requires positive values in '{col}'."
+                )
+            transformed_col = f"log_{col}"
+            df[transformed_col] = np.log10(df[col].values)
+            transformed_param_cols.append(transformed_col)
+        else:
+            transformed_param_cols.append(col)
+
+    if log_param_cols:
+        print(
+            "  Log-transformed target columns: "
+            + ", ".join(f"{col} -> log_{col}" for col in log_param_cols if col in param_cols)
+        )
+    else:
+        print("  No target columns were log-transformed.")
+
+    return df, transformed_param_cols
+
+
+def inverse_transform_params(
+    params: np.ndarray,
+    param_cols: List[str],
+    log_param_cols: List[str] = ASTROPHYSICAL_LOG_PARAMS,
+) -> np.ndarray:
+    """
+    Convert model targets from transformed space back to physical units.
+    """
+    params_physical = np.array(params, copy=True)
+    log_param_set = set(log_param_cols)
+    for i, col in enumerate(param_cols):
+        if col in log_param_set:
+            params_physical[:, i] = np.power(10.0, params_physical[:, i])
+    return params_physical
+
+
 def prepare_features_and_params(
     data_path: Path, galaxy_properties: List[str], param_columns: List[str]
 ) -> Tuple[np.ndarray, np.ndarray, List[str], List[str]]:
@@ -125,7 +186,9 @@ def prepare_features_and_params(
 
     df, transformed_feature_cols = transform_features(df, feature_cols)
 
+    df, transformed_param_cols = transform_params(df, param_columns)
+
     features = df[transformed_feature_cols].values
-    params = df[param_columns].values
+    params = df[transformed_param_cols].values
 
     return features, params, feature_cols, transformed_feature_cols
